@@ -1,0 +1,3 @@
+##Assignment 1 script
+
+#Process data from "file.data" with FASTQC and output to file.FASTQC
