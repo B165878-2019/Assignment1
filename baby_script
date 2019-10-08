@@ -1,0 +1,25 @@
+#!/bin/bash
+#Trying to write this script
+#
+#Run quality analysis of files using fastqc
+alias run='echo -e "\n###\n working things out\n###"'
+# find data file path
+read -p "enter path to file containing data:" -i "file path" FILE.DATA
+#Run FASTQC on files, send output to FASQC.out, unzip output, show summary, prompt continue y/n
+cd FILE.DATA
+mkdir FASTQC.out
+for f in $FILES
+do
+	echo "Processing $f file..."
+	fastqc -o --FASTQC.out $f
+	unzip $f".zip" 
+	cat 'summary.txt'
+	read -p 'continue to next file?' yn
+	case $yn in
+		[Yy]* ) continue;;
+		[Nn]* ) exit;;
+		* ) echo "Answer yes or no.";;
+	esac
+done
+#
+#
