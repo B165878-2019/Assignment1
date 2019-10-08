@@ -1,25 +1,28 @@
 #!/bin/bash
 #Trying to write this script
 #
-#Run quality analysis of files using fastqc
-alias run='echo -e "\n###\n working things out\n###"'
-# find data file path
-read -p "enter path to file containing data:" -i "file path" FILE.DATA
+#
+echo -e '\n\n#####\n\n HELLO, and welcome to a weeks worth of my life! \n\n####\n\n'
+# Ask the user for the path to data file and desired output 
+read -p '### Where is your data? (FULL path name)' DATA_FOLDER
+echo -e '\n\n'
+read -p '### Where would you like the output directory to be created (FULL path name)' OUT
 #Run FASTQC on files, send output to FASQC.out, unzip output, show summary, prompt continue y/n
-cd FILE.DATA
-mkdir FASTQC.out
-for f in $FILES
+cd $OUT
+mkdir -p FASTQC.out
+for f in $DATA_FOLDER/*fq.gz;
 do
-	echo "Processing $f file..."
-	fastqc -o --FASTQC.out $f
-	unzip $f".zip" 
-	cat 'summary.txt'
-	read -p 'continue to next file?' yn
-	case $yn in
+	echo -e "\n\n###\n\n Processing ${f: -14}..... \n\n###\n\n";
+	fastqc -o FASTQC.out $f;
+#FASTQC finished, now unzip corresponding file, and present category summary to user
+filename= ${f: } #FIX THIS TO INCLUDE ONLY THE RELEVANT PART OF THE FILE NAME
+	unzip -p $f
+	cat "$filename.fastqc/summary.txt"
+#prompt for continue after each file
+echo 'continue to next file'
+case $yn in
 		[Yy]* ) continue;;
 		[Nn]* ) exit;;
 		* ) echo "Answer yes or no.";;
 	esac
-done
-#
-#
+done < $DATA_FOLDER;
