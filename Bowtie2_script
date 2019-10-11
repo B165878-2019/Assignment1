@@ -1,0 +1,16 @@
+#!/bin/bash
+read -p "Where is your reference genome? : " reference
+read -p "Choose name for index... : " index_name
+read -p "Where would you like the index to be created? :" INDEX_FOLDER
+cd $INDEX_FOLDER
+mkdir -p "$index_name"_Bowtie2_Index
+cd "$index_name"_Bowtie2_Index
+gunzip $reference
+bowtie2-build -q --threads 10 $reference $index_name
+#
+for f in $SEQUENCE_DATA
+do
+	filename=$(basename -s .fq.gz $f);
+	Sequence_pair= ${filename%_?};
+	bowtie2 --quiet --threads 50 -x $INDEX_FOLDER -1 $sequence_pair"_1.fq" -2 $sequence_pair"_2.fq" -s 	Alignment.sam
+done
