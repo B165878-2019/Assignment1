@@ -1,16 +1,33 @@
 #!/bin/bash
-read -p "Where is your reference genome? : " reference
-read -p "Choose name for index... : " index_name
-read -p "Where would you like the index to be created? :" INDEX_FOLDER
+read -p "Do you already have a Bowtie2 index created? (yes/no) : "
+case $yn in
+		[Yy]* ) continue;;
+		[Nn]* ) echo "\n\n### Follow these steps to create an index... \n\n"
+read -p "### Where is your reference genome? : " reference
+echo -e '\n'
+read -p "### Where would you like the index to be created? :" INDEX_FOLDER
+echo -e '\n'
+read -p "### Choose a basename for your index... : " index_name;;
+		* ) echo "Answer yes or no.";;
+	esac
+read -p "Where is your pre-made index? :" $TEST_INDEX
 cd $INDEX_FOLDER
 mkdir -p "$index_name"_Bowtie2_Index
 cd "$index_name"_Bowtie2_Index
-gunzip $reference
-bowtie2-build -q --threads 10 $reference $index_name
-#
-for f in $SEQUENCE_DATA
+#gunzip ${reference%.gz}
+#echo -e "\n\n######## Starting index build, please wait... #######\n\n"
+#bowtie2-build --quiet --threads 50 ${reference%.gz} $index_name
+echo -e "\n\n######## Index build complete #######\n\n"
+cd $INDEX_FOLDER/"$index_name"_Bowtie2_Index
+for f in $SEQUENCE_DATA/*fq.gz
 do
-	filename=$(basename -s .fq.gz $f);
-	Sequence_pair= ${filename%_?};
-	bowtie2 --quiet --threads 50 -x $INDEX_FOLDER -1 $sequence_pair"_1.fq" -2 $sequence_pair"_2.fq" -s 	Alignment.sam
+	filename=$(basename -s .fq.gz $f)
+#echo -e "\n\n $filename \n\n"
+	read_pair=${filename%_?}
+#echo -e "\n\n $read_pair \n\n"
+echo -e '\n\n########### Starting sequence alignment, I hope you have a good computer...\n\n'
+	bowtie2 --very-fast --no-unal -p 50 -x $index_name -1 $SEQUENCE_DATA/${read_pair}"_1.fq.gz" -2 $SEQUENCE_DATA/${read_pair}"_2.fq.gz" -S ${index_name}_Alig.sam
+echo -e  "\n\n $SEQUENCE_DATA/${read_pair}"_2.fq.gz" \n\n"
 done
+echo -e 
+#"$index_name\_Bowtie2_Index"## What should realy be in bowtie2 script rather than $TEST_INDEX
