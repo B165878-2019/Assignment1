@@ -1,28 +1,29 @@
 #!/bin/bash
-#Trying to write this script
 #
-#
+# Step 0: simple introduction
 echo -e '\n\n#####\n\n HELLO, and welcome to a weeks worth of my life! \n\n####\n\n'
-# Ask the user for the path to data file and desired output 
+# Step 1: Retreive path to sequence data and desired output directory from user input
 read -p '### Where is your sequencing data? (FULL path name) : ' SEQUENCE_DATA
 echo -e '\n\n'
 read -p '### Where would you like the output directory to be created (FULL path name) : ' FASTQC_OUT
-#Run FASTQC on files, send output to FASQC.out, unzip output, show summary, prompt continue y/n
+# Step 2: Making output directory and running FASTQC, then showing summary and option for viewing full analysis (.html in firefox)
+# Step 2a: Changed to desired output directory and make FASTQC.out folder
 cd $FASTQC_OUT;
 mkdir -p FASTQC.out
+# Step 2b: Run FASTQC only on applicaple files (.fq.gz); Also, establish filename variables (not containing .fq.gz) for later use
 for f in $SEQUENCE_DATA/*fq.gz
 do
 	cd $FASTQC_OUT
-	filename=$(basename -s .fq.gz $f)
-	echo -e "\n\n###\n\n Processing $filename..... \n\n###\n\n"
+	filename=$(basename -s .fq.gz $f) #IMPORTANT LINE
+	echo -e "\n\n###\n\n Processing $filename..... \n\n###\n\n" 
 	fastqc --threads 50 -o FASTQC.out $f
 	echo -e "\n\n###\n\n FASTQC analysis complete for $filename, showing summary... \n\n###\n\n"
-#FASTQC finished, now unzip corresponding file, and present category summary to user
-	unzip -q -u "$FASTQC_OUT"/FASTQC.out"/$filename"_fastqc.zip
+# Step 2c: (1) Using variables established prior, unzip associated output file - (2) Then show summary to screen - (3) Then give option to open full .html analysis in firefox
+	unzip -q -u "$FASTQC_OUT"/FASTQC.out"/$filename"_fastqc.zip #(1)
 	cd "$FASTQC_OUT"/FASTQC.out;
-	cat "$FASTQC_OUT"/FASTQC.out"/"$filename"_fastqc/summary.txt"
+	cat "$FASTQC_OUT"/FASTQC.out"/"$filename"_fastqc/summary.txt" #(2)
 	echo -e '\n\n'
-	read -p '#### Open full analysis in firefox (answer yes/no) :' yn
+	read -p '#### Open full analysis in firefox (answer yes/no) :' yn #(3)
 case $yn in
 		[Yy]* ) firefox "$FASTQC_OUT/FASTQC.out/$filename""_fastqc.html" & ;;
 		[Nn]* ) continue;;

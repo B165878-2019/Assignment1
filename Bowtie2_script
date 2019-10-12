@@ -1,33 +1,40 @@
 #!/bin/bash
-read -p "Do you already have a Bowtie2 index created? (yes/no) : "
+# Step 3: Preparing index
+# Step 3a: Ask for previous index and set variables, will save time and storage with repeated use
+read -p "### Have you already created a Bowtie2_Index folder WITH THIS PROGRAMME? (yes/no) : "
 case $yn in
-		[Yy]* ) continue;;
+		[Yy]* ) read -p "### Where is your pre-made index? :" INDEX_FOLDER
+read -p "### What is the basename of your pre-made index?" index_name;;
+# Step 3b: Creating a new index - (1) locating reference genome file, output location and index name - (2) moving to desired directory and creating Index_folder - (3) unzip reference and build index - (4) Using "--quiet" to remove screen clutter, "--threads 50" to run faster
 		[Nn]* ) echo "\n\n### Follow these steps to create an index... \n\n"
-read -p "### Where is your reference genome? : " reference
+read -p "### Where is your reference genome? : " reference  # (1)
 echo -e '\n'
 read -p "### Where would you like the index to be created? :" INDEX_FOLDER
 echo -e '\n'
-read -p "### Choose a basename for your index... : " index_name;;
-		* ) echo "Answer yes or no.";;
-	esac
-read -p "Where is your pre-made index? :" $TEST_INDEX
-cd $INDEX_FOLDER
+read -p "### Choose a basename for your index... : " index_name
+cd $INDEX_FOLDER # (2)
 mkdir -p "$index_name"_Bowtie2_Index
 cd "$index_name"_Bowtie2_Index
-#gunzip ${reference%.gz}
-#echo -e "\n\n######## Starting index build, please wait... #######\n\n"
-#bowtie2-build --quiet --threads 50 ${reference%.gz} $index_name
-echo -e "\n\n######## Index build complete #######\n\n"
+gunzip -q ${reference%.gz} # (3)
+echo -e "\n\n######## Starting index build, please wait... #######\n\n"
+bowtie2-build --quiet --threads 50 ${reference%.gz} $index_name # (4)
+echo -e "\n\n######## Index build complete #######\n\n";;
+		* ) echo -e '\n\n ####### Indexing stage complete! #######\n\n';;
+	esac
+# Step 4: Bowtie2 sequence alignment
+# Step 4a: Move to index folder to run alignment
 cd $INDEX_FOLDER/"$index_name"_Bowtie2_Index
+# Step 4b: Set variables to run data as associated sequence pairs - (1) Removes path and trailing suffix .fq.gz - (2) Removes trailing "_2" or "_1"
 for f in $SEQUENCE_DATA/*fq.gz
 do
-	filename=$(basename -s .fq.gz $f)
-#echo -e "\n\n $filename \n\n"
-	read_pair=${filename%_?}
-#echo -e "\n\n $read_pair \n\n"
-echo -e '\n\n########### Starting sequence alignment, I hope you have a good computer...\n\n'
+	filename=$(basename -s .fq.gz $f) # (1)
+	#echo -e "\n\n $filename \n\n" #THESE ARE TESTS, I had trouble settig variables :/
+	read_pair=${filename%_?} # (2)
+	#echo -e "\n\n $read_pair \n\n" #THESE ARE TESTS, I had trouble settig variables :/
+# Step 4c: Run sequence alignment for peired end reads - (1) using "--very-fast" and "-p 50" (threads) for speed, "--no-unal" to supress failed alignments 
+echo -e "\n\n######## Starting sequence alignment for read pair: $read_pair #######\n\n"
 	bowtie2 --very-fast --no-unal -p 50 -x $index_name -1 $SEQUENCE_DATA/${read_pair}"_1.fq.gz" -2 $SEQUENCE_DATA/${read_pair}"_2.fq.gz" -S ${index_name}_Alig.sam
-echo -e  "\n\n $SEQUENCE_DATA/${read_pair}"_2.fq.gz" \n\n"
+# Step 4d: samtools convert from ".sam" to ".bam"
+samtools view -bs ${index_name}_Alig.sam > ${index_name}_Alig.bam
 done
-echo -e 
-#"$index_name\_Bowtie2_Index"## What should realy be in bowtie2 script rather than $TEST_INDEX
+echo -e '\n\n ###### Sequence alignment complete for all files!!! ####### \n\n'
