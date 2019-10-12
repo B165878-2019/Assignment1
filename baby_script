@@ -4,25 +4,32 @@
 #
 echo -e '\n\n#####\n\n HELLO, and welcome to a weeks worth of my life! \n\n####\n\n'
 # Ask the user for the path to data file and desired output 
-read -p '### Where is your data? (FULL path name)' DATA_FOLDER
+read -p '### Where is your sequencing data? (FULL path name) : ' SEQUENCE_DATA
 echo -e '\n\n'
-read -p '### Where would you like the output directory to be created (FULL path name)' OUT
+read -p '### Where would you like the output directory to be created (FULL path name) : ' FASTQC_OUT
 #Run FASTQC on files, send output to FASQC.out, unzip output, show summary, prompt continue y/n
-cd $OUT
+cd $FASTQC_OUT;
 mkdir -p FASTQC.out
-for f in $DATA_FOLDER/*fq.gz;
+for f in $SEQUENCE_DATA/*fq.gz
 do
-	echo -e "\n\n###\n\n Processing ${f: -14}..... \n\n###\n\n";
-	fastqc -o FASTQC.out $f;
+	cd $FASTQC_OUT
+	filename=$(basename -s .fq.gz $f)
+	echo -e "\n\n###\n\n Processing $filename..... \n\n###\n\n"
+	fastqc --threads 50 -o FASTQC.out $f
+	echo -e "\n\n###\n\n FASTQC analysis complete for $filename, showing summary... \n\n###\n\n"
 #FASTQC finished, now unzip corresponding file, and present category summary to user
-filename= ${f: } #FIX THIS TO INCLUDE ONLY THE RELEVANT PART OF THE FILE NAME
-	unzip -p $f
-	cat "$filename.fastqc/summary.txt"
-#prompt for continue after each file
-echo 'continue to next file'
+	unzip -q -u "$FASTQC_OUT"/FASTQC.out"/$filename"_fastqc.zip
+	cd "$FASTQC_OUT"/FASTQC.out;
+	cat "$FASTQC_OUT"/FASTQC.out"/"$filename"_fastqc/summary.txt"
+	echo -e '\n\n'
+	read -p '#### Open full analysis in firefox (answer yes/no) :' yn
 case $yn in
-		[Yy]* ) continue;;
-		[Nn]* ) exit;;
+		[Yy]* ) firefox "$FASTQC_OUT/FASTQC.out/$filename""_fastqc.html" & ;;
+		[Nn]* ) continue;;
 		* ) echo "Answer yes or no.";;
 	esac
-done < $DATA_FOLDER;
+done
+echo -e '\n\n ########## FASTQC analysis complete for all sequence data ##########\n\n'
+
+
+
