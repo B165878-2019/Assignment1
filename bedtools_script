@@ -1,0 +1,3 @@
+#!/bin/bash
+samtools view -bs -@ 10 ${read_pair}.sam > ${read_pair}.bam
+samtools sort -@ 10 ${read_pair}.bam -o ${read_pair}.sorted.bam
