@@ -1,27 +1,33 @@
 #!/bin/bash
 #
+#
+#
+#FASTQC
+#
+#
 # Step 0: simple introduction
 echo -e '\n\n#####\n\n HELLO, and welcome to a weeks worth of my life! \n\n####\n\n'
 # Step 1: Retreive path to sequence data and desired output directory from user input
-read -p '### Where is your sequencing data? (FULL path name) : ' SEQUENCE_DATA
+read -p '### Where is your sequencing data? (Path from home) : ' SEQUENCE_DATA
 echo -e '\n\n'
-read -p '### Where would you like the output directory to be created (FULL path name) : ' FASTQC_OUT
+read -p '### Where would you like the output directory to be created (Path from home) : ' FASTQC_OUT
 # Step 2: Making output directory and running FASTQC, then showing summary and option for viewing full analysis (.html in firefox)
 # Step 2a: Changed to desired output directory and make FASTQC.out folder
-cd $FASTQC_OUT;
+cd ~/$FASTQC_OUT;
 mkdir -p FASTQC.out
+cd;
 # Step 2b: Run FASTQC only on applicaple files (.fq.gz); Also, establish filename variables (not containing .fq.gz) for later use
-for f in $SEQUENCE_DATA/*fq.gz
+for f in ~/$SEQUENCE_DATA/*fq.gz
 do
-	cd $FASTQC_OUT
+	cd ~/$FASTQC_OUT
 	filename=$(basename -s .fq.gz $f) #IMPORTANT LINE
 	echo -e "\n\n###\n\n Processing $filename..... \n\n###\n\n" 
-	fastqc --threads 50 -o FASTQC.out $f
+	fastqc --threads 50 -o ~/$FASTQC_OUT/FASTQC.out $f
 	echo -e "\n\n###\n\n FASTQC analysis complete for $filename, showing summary... \n\n###\n\n"
 # Step 2c: (1) Using variables established prior, unzip associated output file - (2) Then show summary to screen - (3) Then give option to open full .html analysis in firefox
-	unzip -q -u "$FASTQC_OUT"/FASTQC.out"/$filename"_fastqc.zip #(1)
-	cd "$FASTQC_OUT"/FASTQC.out;
-	cat "$FASTQC_OUT"/FASTQC.out"/"$filename"_fastqc/summary.txt" #(2)
+	unzip -q -u ~/"$FASTQC_OUT"/FASTQC.out"/$filename"_fastqc.zip #(1)
+	cd ~/"$FASTQC_OUT"/FASTQC.out;
+	cat ~/"$FASTQC_OUT"/FASTQC.out"/"$filename"_fastqc/summary.txt" #(2)
 	echo -e '\n\n'
 	read -p '#### Open full analysis in firefox (answer yes/no) :' yn #(3)
 case $yn in
@@ -31,6 +37,54 @@ case $yn in
 	esac
 done
 echo -e '\n\n ########## FASTQC analysis complete for all sequence data ##########\n\n'
-
-
-
+#
+#
+#Bowtie2
+#
+#
+echo -e '\n\n ########## Moving on to Bowtie2 sequence alignment #########\n\n'
+# Step 3: Preparing index
+# Step 3a: Ask for previous index and set variables, will save time and storage with repeated use
+read -p "### Have you already created a Bowtie2_Index folder WITH THIS PROGRAMME? (yes/no) : " yn
+case $yn in
+		[Yy]* ) cd
+read -p "### Give the parent directory of your index, as path from your home directory? :" INDEX_FOLDER;
+read -p "### What is the basename of your pre-made index?" index_name;;
+# Step 3b: Creating a new index - (1) locating reference genome file, output location and index name - (2) moving to desired directory and creating Index_folder - (3) unzip reference and build index - (4) Using "--quiet" to remove screen clutter, "--threads 50" to run faster
+		[Nn]* ) echo -e  "\n\n### Follow these steps to create an index... \n\n";
+	read -p "### Path to reference genome from home directory? : " reference;  # (1)
+	echo -e '\n';
+	read -p "### Where would you like the index to be created (path from home)? : " INDEX_FOLDER;
+	echo -e '\n';
+	read -p "### Choose a basename for your index... : " index_name;
+cd
+cd ~/$INDEX_FOLDER; # (2)
+mkdir -p "$index_name"_Bowtie2_Index;
+cd ~/"$index_name"_Bowtie2_Index;
+genome=$(basename $reference)
+echo -e "\n\n######## Unzipping $genome... ########\n\n"
+gunzip -q ~/${reference%.gz}; # (3)
+echo -e "\n\n######## Starting index build, please wait... #######\n\n";
+bowtie2-build --quiet --threads 50 ~/${reference%.gz} $index_name; # (4)
+echo -e "\n\n######## Index build complete #######\n\n"
+echo -e "\n\n######## Zipping $genome... \n\n#######";;
+		* ) echo -e '\n';;
+	esac
+echo -e '\n\n####### Indexing stage complete! #######\n\n'
+# Step 4: Bowtie2 sequence alignment
+# Step 4a: Move to index folder to run alignment
+cd ~/$INDEX_FOLDER/"$index_name"_Bowtie2_Index
+# Step 4b: Set variables to run data as associated sequence pairs - (1) Removes path and trailing suffix .fq.gz - (2) Removes trailing "_2" or "_1"
+for f in ~/$SEQUENCE_DATA/*fq.gz
+do
+	filename=$(basename -s .fq.gz $f) # (1)
+	#echo -e "\n\n $filename \n\n" #THESE ARE TESTS, I had trouble settig variables :/
+	read_pair=${filename%_?} # (2)
+	#echo -e "\n\n $read_pair \n\n" #THESE ARE TESTS, I had trouble settig variables :/
+# Step 4c: Run sequence alignment for peired end reads - (1) using "--very-fast" and "-p 50" (threads) for speed, "--no-unal" to supress failed alignments 
+echo -e "\n\n######## Starting sequence alignment for read pair: $read_pair #######\n\n"
+	bowtie2 --very-fast --no-unal -p 50 -x $index_name -1 ~/$SEQUENCE_DATA/${read_pair}"_1.fq.gz" -2 ~/$SEQUENCE_DATA/${read_pair}"_2.fq.gz" -S ${index_name}_Alig.sam
+# Step 4d: samtools convert from ".sam" to ".bam"
+samtools view -bs ${index_name}_Alig.sam > ${index_name}_Alig.bam
+done
+echo -e '\n\n ###### Sequence alignment complete for all files!!! ####### \n\n'

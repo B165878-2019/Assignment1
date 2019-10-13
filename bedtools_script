@@ -1,3 +1,14 @@
 #!/bin/bash
-samtools view -bs -@ 10 ${read_pair}.sam > ${read_pair}.bam
-samtools sort -@ 10 ${read_pair}.bam -o ${read_pair}.sorted.bam
+#samtools view -bs -@ 10 ${read_pair}.sam > ${read_pair}.bam
+###samtools sort -@ 10 ${read_pair}.bam -o ${read_pair}.sort.bam
+####samtools index -@10 ${read_pair}.sort.bam
+####bedtools multicov -bams ${read_pair}.sort.bam -bed Tbbgenes.bed
+
+read -p "Path from home to your slender/stumpy referenec file" variety_reference
+slender=$(cat $variety_reference | awk 'BEGIN{OFS=","; ORS=","} {if($2 == "Slender") {print $1"_L8_1",$1"_L8_2";}}')
+echo $slender 
+stumpy=$(cat $variety_reference | awk 'BEGIN{OFS=","; ORS=","} {if($2 == "Stumpy") {print $1"_L8_1",$1"_L8_2";}}')
+echo $stumpy
+
+
+#${2%fq.gz}sort.bam,${3%fq.gz}sort.bam
