@@ -1,0 +1,107 @@
+#!/bin/bash
+#
+#
+#
+#FASTQC
+#
+#
+# Step 1: Retreive path to sequence data and desired output directory from user input
+read -p '### Where is your sequencing data? (full path) : ' SEQUENCE_DATA
+echo -e '\n\n'
+read -p '### Where would you like the output directory to be created (full path) : ' FASTQC_OUT
+# Step 2: Making output directory and running FASTQC, then showing summary and option for viewing full analysis (.html in firefox)
+# Step 2a: Changed to desired output directory and make FASTQC.out folder
+mkdir -p $FASTQC_OUT/FASTQC.out && cd &!
+# Step 2b: Run FASTQC only on applicaple files (.fq.gz); Also, establish filename variables (not containing .fq.gz) for later use
+for f in "$SEQUENCE_DATA"/*fq.gz
+do
+	cd $FASTQC_OUT/FASTQC.out
+	filename=$(basename -s .fq.gz $f)
+	echo -e "\n\n###\n\n Processing $filename..... \n\n###\n\n" 
+	fastqc --threads 50 -o "$FASTQC_OUT/FASTQC.out" $f
+	echo -e "\n\n###\n\n FASTQC analysis complete for $filename, showing summary... \n\n###\n\n"
+# Step 2c: (1) Using variables established prior, unzip associated output file - (2) Then show summary to screen - (3) Then give option to open full .html analysis in firefox
+	unzip -q "$FASTQC_OUT"/FASTQC.out"/"$filename"_fastqc.zip" #(1)
+	cd "$FASTQC_OUT"/FASTQC.out;
+	cat "$FASTQC_OUT"/FASTQC.out"/"$filename"_fastqc/summary.txt" #(2)
+	echo -e '\n\n'
+	read -p '#### Open full analysis in firefox (answer yes/no) :' yn #(3)
+case $yn in
+		[Yy]* ) firefox "$FASTQC_OUT/FASTQC.out/$filename""_fastqc.html" & ;;
+		[Nn]* ) continue;;
+		* ) echo "Answer yes or no.";;
+	esac
+done
+echo -e '\n\ncd########## FASTQC analysis complete for all sequence data ##########\n\n'
+#
+#
+#Bowtie2
+#
+# Step 3: Preparing index
+# Step 3a: Ask for previous index and set variables, will save time and storage with repeated use
+read -p "### Have you already created a Bowtie2_Index folder WITH THIS PROGRAMME? (yes/no) : " yn
+echo -e "\n"
+case $yn in
+		[Yy]* ) read -p "### Give the path of the parent directory of your index? : " INDEX_FOLDER;
+echo -e "\n"
+			read -p "### What is the basename of your pre-made index? : " index_name;;
+# Step 3b: Creating a new index - (1) locating reference genome file, output location and index name - (2) creating Index_folder - (3) unzip reference and build index - (4) Using "--quiet" to remove screen clutter, "--threads 50" to run faster
+		[Nn]* ) echo -e "\n\n### Follow these steps to create an index... \n\n";
+read -p "### Path to reference genome? :  " reference;  # (1)
+echo -e '\n';
+read -p "### Where would you like the index to be created (full path)? : " INDEX_FOLDER;
+echo -e '\n';
+read -p "### Choose a basename for your index... : " index_name;
+mkdir -p $INDEX_FOLDER/$index_name"_Bowtie2_Index"; cd $_
+gunzip ${reference%.gz} # (3)
+echo -e "\n\n######## Starting index build, please wait... #######\n\n";
+bowtie2-build --quiet --threads 50 ${reference%.gz} $index_name; # (4)
+echo -e "\n\n######## Index build complete #######\n\n"
+echo -e "\n\n######## Zipping up reference genome...\n\n######"
+gzip ${reference%.gz};;
+		* ) echo -e '\n';;
+	esac
+echo -e '\n\n####### Indexing stage complete! #######\n\n'
+read -p 'sequence data (REMOVE THIS LINE): ' SEQUENCE_DATA
+# Step 4: Bowtie2 sequence alignment
+# Step 4a: Move to index folder to run alignment
+cd $INDEX_FOLDER/"$index_name"_Bowtie2_Index
+# Step 4b: Set variables to run data as associated sequence pairs - (1) Removes path and trailing suffix .fq.gz - (2) Removes trailing "_2" or "_1"
+read -p "### Before starting alignment, where would you like to output the files? (As full path, this will create a directory): " ALIGNMENT_OUT
+mkdir -p $ALIGNMENT_OUT/"$index_name"_alignment
+for f in $SEQUENCE_DATA/*fq.gz
+do
+if [[ $f == *"L8_1"* ]]; then
+	filename=$(basename -s .fq.gz $f) # (1)
+	#echo -e "\n\n $filename \n\n" #THESE ARE TESTS, I had trouble settig variables :/
+	read_pair=${filename%_?} # (2)
+# Step 4c: Run sequence alignment for peired end reads - (1) using "--very-fast" and "-p 50" (threads) for speed, "--no-unal" to supress failed alignments 
+echo -e "\n\n######## Starting sequence alignment for read pair: $read_pair ########\n\n"
+	bowtie2 --very-fast --no-unal -p 50 -x $index_name -1 $SEQUENCE_DATA/$read_pair"_1.fq.gz" -2 $SEQUENCE_DATA/$read_pair"_2.fq.gz" -S $read_pair.sam 
+mv $read_pair.sam $ALIGNMENT_OUT/"$index_name"_alignment
+fi
+done
+echo -e '\n\n ###### Sequence alignment complete for all files!!! ####### \n\n'
+read -p "name" index_name
+read -p 'out' ALIGNMENT_OUT
+echo -e '\n\n ###### converting files to bam and indexing \n\n ######'
+# Step 4d: samtools convert from ".sam" to ".bam", sort to sorted bam and then index
+for i in $ALIGNMENT_OUT/"$index_name"_alignment/*.sam
+do
+name=${i%.sam}
+echo $name
+samtools view -bs ${name}.sam > ${name}.bam;
+samtools index ${name}.bam;
+done
+# Step 4e: prompts for reference fqfile and bedfile
+echo -e "\n\n##### Moving on to gene matchup.... ######\n\n"
+read -p "### Where is the full path to your slender/stumpy reference file? : " variety_reference
+echo -e "\n\n"
+read -p "### What is the path to your bedfile? : " bedfile
+# Step 4f: Split data using info in fqfile and run gene mapping for "slender" and "stumpy" groups
+stumpy=$(cat $variety_reference | awk 'BEGIN{OFS=","; ORS=","} {if($2 == "Stumpy") {print $1"_L8_1,sort.bam",$1"_L8_2.sort.bam";}}')
+slender=$(cat $variety_reference | awk 'BEGIN{OFS=","; ORS=","} {if($2 == "Slender") {print $1"_L8_1.sort.bam",$1"_L8_2.sort.bam";}}')
+echo -e '\n\n ##### Assessing gene matchups for "stumpy" samples #####\n\n'
+bedtools multicov -bams ${slender} -bed $bedfile
+echo -e '\n\n ##### Assessing gene matchups for "stumpy" samples #####\n\n'
+bedtools multicov -bams ${stumpy} -bed $bedfile
